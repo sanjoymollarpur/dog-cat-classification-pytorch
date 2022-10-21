@@ -219,7 +219,7 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
         param_group["lr"] = lr
 
 
-path="weight/wt_lr_epoch-10.pth.tar"
+path="weight/wt_lr_epoch-100.pth.tar"
 load_checkpoint(path,model,optimizer, lr=0.001)
 
 
@@ -262,14 +262,15 @@ import numpy as np
 
 
 import glob
-for filename in glob.glob("dogcat/training_set/dogs/*.jpg"): #assuming gif
+c=0
+for filename in glob.glob("dogcat/test_set/dogs/*.jpg"): #assuming gif
     print(filename)
     image=cv2.imread(filename)
-    image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-    plt.imshow(image)
+    # image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+    # plt.imshow(image)
     
-    plt.show()
-
+    # plt.show()
+    y=image
     transform = transforms.Compose([ 
                        transforms.ToTensor(),
                        transforms.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
@@ -284,10 +285,15 @@ for filename in glob.glob("dogcat/training_set/dogs/*.jpg"): #assuming gif
     with torch.no_grad():
          x = model(x)
          if x.argmax(dim=1)==1:
+            c+=1
             print("dog")
          else:
              print("cat")
-
+    image=cv2.cvtColor(y,cv2.COLOR_BGR2RGB)
+    plt.imshow(image)
+    
+    plt.show()
+print(c)
 
 
 

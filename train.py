@@ -231,8 +231,9 @@ model.train()
 optimizer = optim.Adam(params = model.parameters(),lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-epochs = 100
-
+epochs = 4
+train_acc=[]
+test_acc=[]
 for epoch in range(epochs):
     epoch_loss = 0
     epoch_accuracy = 0
@@ -252,6 +253,8 @@ for epoch in range(epochs):
         epoch_accuracy += acc/len(train_loader)
         epoch_loss += loss/len(train_loader)
         
+        train_acc.append(epoch_accuracy)
+
     print('Epoch : {}, train accuracy : {}, train loss : {}'.format(epoch+1, epoch_accuracy,epoch_loss))
     
     
@@ -269,8 +272,12 @@ for epoch in range(epochs):
             acc = ((val_output.argmax(dim=1) == label).float().mean())
             epoch_val_accuracy += acc/ len(val_loader)
             epoch_val_loss += val_loss/ len(val_loader)
+            
         if epoch_val_accuracy>=0.5:
             save_checkpoint(model, optimizer, filename=f"weight/wt_lr_epoch-{epochs}.pth.tar")
+        
+        test_acc.append(epoch_val_accuracy)
+
         print('Epoch : {}, val_accuracy : {}, val_loss : {}'.format(epoch+1, epoch_val_accuracy,epoch_val_loss))
 
 
