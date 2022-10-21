@@ -262,9 +262,10 @@ import numpy as np
 
 
 import glob
-for filename in glob.glob("dogcat/test_set/dogs/*.jpg"): #assuming gif
+for filename in glob.glob("dogcat/training_set/dogs/*.jpg"): #assuming gif
     print(filename)
     image=cv2.imread(filename)
+    image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
     plt.imshow(image)
     
     plt.show()
