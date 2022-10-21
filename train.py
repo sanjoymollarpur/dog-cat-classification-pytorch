@@ -54,15 +54,15 @@ import glob
 
 
 train_list = glob.glob(os.path.join(train_dir,'*.jpg'))
-# print(len(train_list))
+print(len(train_list))
 train_list+=glob.glob(os.path.join(train_dir1,'*.jpg'))
 test_list = glob.glob(os.path.join(test_dir, '*.jpg'))
-# print("test", len(test_list))
+print("test", len(test_list))
 test_list += glob.glob(os.path.join(test_dir1, '*.jpg'))
-# print(len(train_list))
-# print("test", len(test_list))
+print(len(train_list))
+print("test", len(test_list))
 
-# print(train_list[0])
+print(train_list[0])
 
 from PIL import Image
 random_idx = np.random.randint(1,8000,size=10)
@@ -78,7 +78,7 @@ i=1
 # plt.axis('off')
 # plt.show()
 
-# print(train_list[0].split('/')[-1].split('.')[0])
+print(train_list[0].split('/')[-1].split('.')[0])
 
 # print(int(test_list[0].split('/')[-1].split('.')[0]))
 
@@ -148,11 +148,38 @@ val_data = dataset(val_list, transform=test_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_data, batch_size=batch_size, shuffle=True )
 test_loader = torch.utils.data.DataLoader(dataset = test_data, batch_size=batch_size, shuffle=True)
-val_loader = torch.utils.data.DataLoader(dataset = val_data, batch_size=batch_size, shuffle=False)
+val_loader = torch.utils.data.DataLoader(dataset = val_data, batch_size=batch_size, shuffle=True)
 
 print(len(train_data), len(train_loader))
 
 print(train_data[0][0].shape)
+
+
+
+def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
+    print("=> Saving checkpoint")
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    torch.save(checkpoint, filename)
+
+
+def load_checkpoint(checkpoint_file, model, optimizer, lr):
+    print("=> Loading checkpoint")
+    checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
+    model.load_state_dict(checkpoint["state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+
+    # If we don't do this then it will just have learning rate of old checkpoint
+    # and it will lead to many hours of debugging \:
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+
+
+
+
+
 
 
 class Cnn(nn.Module):
@@ -199,124 +226,51 @@ class Cnn(nn.Module):
 
 
 model = Cnn().to(device)
-
+model.train()
 
 optimizer = optim.Adam(params = model.parameters(),lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-epochs = 10
+epochs = 100
 
-
-def load_checkpoint(checkpoint_file, model, optimizer, lr):
-    print("=> Loading checkpoint")
-    checkpoint = torch.load(checkpoint_file, map_location=device)
-    model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
-
-    # If we don't do this then it will just have learning rate of old checkpoint
-    # and it will lead to many hours of debugging \:
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr
-
-
-path="weight/wt_lr_epoch-10.pth.tar"
-load_checkpoint(path,model,optimizer, lr=0.001)
-
-
-
-i=0
-
-for data in val_list:
-    print(len(val_list))
-# ax = fig.add_subplot(2,5,i)
-# img = Image.open(train_list[idx])
-# plt.imshow(img)
-    
-
-# plt.axis('off')
-# plt.show()
-
-import numpy as np
-
-# for data, label in val_loader:
-#     c+=1
-#     print(data.shape)
-        # i=1
-        # fig = plt.figure()
-        # for dat in data:
-        #     ax = fig.add_subplot(2,5,i)
-        #     img=dat
-        #     # img=np.asarray(dat)
-        #     img = Image.open(img)
-        #     plt.imshow(img)
-        #     i+=1
-        # plt.axis('off')
-        # plt.show()
-        # data = data.to(device)
-        # label = label.to(device)
-        # with torch.no_grad():
-        #     out = model(data)
-        #     print(out.argmax(dim=1), label)
+for epoch in range(epochs):
+    epoch_loss = 0
+    epoch_accuracy = 0
+    torch.cuda.empty_cache() 
+    for data, label in train_loader:
+        data = data.to(device)
+        label = label.to(device)
         
-    # print(c)
-
-
-import glob
-for filename in glob.glob("dogcat/test_set/dogs/*.jpg"): #assuming gif
-    print(filename)
-    image=cv2.imread(filename)
-    plt.imshow(image)
+        output = model(data)
+        loss = criterion(output, label)
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        acc = ((output.argmax(dim=1) == label).float().mean())
+        epoch_accuracy += acc/len(train_loader)
+        epoch_loss += loss/len(train_loader)
+        
+    print('Epoch : {}, train accuracy : {}, train loss : {}'.format(epoch+1, epoch_accuracy,epoch_loss))
     
-    plt.show()
-
-    transform = transforms.Compose([ 
-                       transforms.ToTensor(),
-                       transforms.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
-                       transforms.Resize((224, 224)), 
-                    ])
-    image = transform(image)
-    x=image
-    x = np.expand_dims(x,0)
-    print(x.shape)
-    x=torch.tensor(x)
-    x = x.to(device)
+    
     with torch.no_grad():
-         x = model(x)
-         if x.argmax(dim=1)==1:
-            print("dog")
-         else:
-             print("cat")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        epoch_val_accuracy=0
+        epoch_val_loss =0
+        for data, label in val_loader:
+            data = data.to(device)
+            label = label.to(device)
+            
+            val_output = model(data)
+            val_loss = criterion(val_output,label)
+            
+            
+            acc = ((val_output.argmax(dim=1) == label).float().mean())
+            epoch_val_accuracy += acc/ len(val_loader)
+            epoch_val_loss += val_loss/ len(val_loader)
+        if epoch_val_accuracy>=0.5:
+            save_checkpoint(model, optimizer, filename=f"weight/wt_lr_epoch-{epochs}.pth.tar")
+        print('Epoch : {}, val_accuracy : {}, val_loss : {}'.format(epoch+1, epoch_val_accuracy,epoch_val_loss))
 
 
